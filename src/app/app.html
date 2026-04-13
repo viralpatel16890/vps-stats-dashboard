@@ -1,0 +1,186 @@
+<main class="dashboard-shell">
+  <header class="dashboard-header">
+    <div>
+      <p class="eyebrow">stats.viralpatelstudio.in</p>
+      <h1>{{ title() }}</h1>
+      <p class="subtitle">Public infrastructure observability with lightweight polling.</p>
+    </div>
+
+    <div class="actions">
+      <div class="status-row">
+        <div class="health-badge" [style.borderColor]="healthStatus().color">
+          <span [style.color]="healthStatus().color">{{ healthStatus().text }}</span>
+        </div>
+        @if (lastUpdated()) {
+          <span class="last-updated">Synced now</span>
+        }
+      </div>
+      <div class="btn-row">
+        <button mat-flat-button class="theme-btn" (click)="toggleTheme()" type="button">
+          {{ isDarkMode() ? 'Light' : 'Dark' }}
+        </button>
+        <button mat-flat-button class="refresh-btn" (click)="refresh()" [disabled]="loading()">
+          <span class="refresh-glyph" aria-hidden="true">↻</span>
+          Refresh now
+        </button>
+      </div>
+    </div>
+  </header>
+
+  @if (error()) {
+    <mat-card class="error-card">
+      <mat-card-content>{{ error() }}</mat-card-content>
+    </mat-card>
+  }
+
+  @if (loading() && !metrics()) {
+    <div class="spinner-wrap">
+      <mat-spinner diameter="44"></mat-spinner>
+    </div>
+  }
+
+  @if (metrics(); as data) {
+    <section class="metrics-grid">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>CPU Usage</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="metric-value" [ngClass]="usageClass(data.cpu.usagePercent)">
+            {{ data.cpu.usagePercent / 100 | percent: '1.0-1' }}
+          </p>
+          <mat-progress-bar mode="determinate" [value]="data.cpu.usagePercent"></mat-progress-bar>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Memory Usage</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="metric-value" [ngClass]="usageClass(data.memory.usagePercent)">
+            {{ data.memory.usagePercent / 100 | percent: '1.0-1' }}
+          </p>
+          <p class="meta">{{ data.memory.usedBytes / 1073741824 | number: '1.1-1' }} GB / {{ data.memory.totalBytes / 1073741824 | number: '1.1-1' }} GB</p>
+          <mat-progress-bar mode="determinate" [value]="data.memory.usagePercent"></mat-progress-bar>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Disk Usage ({{ data.disk.mount }})</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="metric-value" [ngClass]="usageClass(data.disk.usagePercent)">
+            {{ data.disk.usagePercent / 100 | percent: '1.0-1' }}
+          </p>
+          <p class="meta">{{ data.disk.usedBytes / 1073741824 | number: '1.1-1' }} GB used</p>
+          <mat-progress-bar mode="determinate" [value]="data.disk.usagePercent"></mat-progress-bar>
+        </mat-card-content>
+      </mat-card>
+    </section>
+
+    <section class="status-grid">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Docker Status</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="status-summary"><strong>Running:</strong> {{ data.docker.runningCount }} | <strong>Stopped:</strong> {{ data.docker.stoppedCount }}</p>
+          <div class="container-list" *ngIf="data.docker.containers.length; else noContainers">
+            <div class="container-item" *ngFor="let container of data.docker.containers; trackBy: trackByContainer" [style.borderLeftColor]="getContainerStatusColor(container.state)">
+              <div class="container-header">
+                <span class="container-name" [style.color]="getContainerStatusColor(container.state)">{{ container.name }}</span>
+              </div>
+              <div class="container-meta">{{ container.state }} · {{ container.status }}</div>
+            </div>
+          </div>
+          <ng-template #noContainers>
+            <p class="meta">No containers found.</p>
+          </ng-template>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Database Status</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-chip-listbox>
+            <mat-chip [ngClass]="data.database.overall === 'up' ? 'chip-up' : (data.database.overall === 'down' ? 'chip-down' : 'chip-unknown')">
+              {{ data.database.overall === 'up' ? 'Online' : (data.database.overall === 'down' ? 'Offline' : 'Not detected') }}
+            </mat-chip>
+          </mat-chip-listbox>
+          <div class="db-grid">
+            <p class="meta" *ngFor="let engine of data.database.engines; trackBy: trackByEngine">
+              {{ engine.name }}: {{ engine.status }}
+            </p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </section>
+
+    @defer (on viewport) {
+    <section class="treemap-section">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Storage Usage Tree Map</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="treemap" *ngIf="data.storageTree.length; else noTree">
+            <div
+              class="tree-node"
+              *ngFor="let node of data.storageTree; trackBy: trackByTreeNode"
+              [style.flex]="node.ratio"
+              [attr.title]="node.path + ' - ' + (node.sizeBytes / 1073741824 | number: '1.1-1') + ' GB'"
+            >
+              <span class="node-path">{{ node.path }}</span>
+              <span class="node-percent">{{ node.ratio * 100 | number: '0.1-1' }}%</span>
+              <small class="node-size">{{ node.sizeBytes / 1073741824 | number: '1.1-1' }} GB</small>
+            </div>
+          </div>
+          <ng-template #noTree>
+            <p class="meta">No storage distribution data available.</p>
+          </ng-template>
+        </mat-card-content>
+      </mat-card>
+    </section>
+    } @placeholder {
+    <section class="treemap-section"><mat-card><mat-card-content><p class="meta">Loading storage map...</p></mat-card-content></mat-card></section>
+    }
+
+    @defer (on viewport) {
+    <section class="websites-section">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Website Status</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="website-grid" *ngIf="data.websites.length; else noWebsites">
+            <div class="website-item" *ngFor="let site of data.websites; trackBy: trackByWebsite">
+              <div class="website-header">
+                <span class="website-name">{{ site.host }}</span>
+                <a
+                  class="website-link"
+                  [href]="'https://' + site.host"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  [attr.aria-label]="'Open ' + site.host + ' in a new tab'"
+                >↗</a>
+              </div>
+              <div class="website-meta">
+                <span [ngClass]="'response-' + getWebsiteResponseClass(site.responseMs)">{{ site.responseMs }} ms</span> · {{ site.status }} ({{ site.httpCode }})
+              </div>
+            </div>
+          </div>
+          <ng-template #noWebsites>
+            <p class="meta">No website checks configured.</p>
+          </ng-template>
+        </mat-card-content>
+      </mat-card>
+    </section>
+    } @placeholder {
+    <section class="websites-section"><mat-card><mat-card-content><p class="meta">Loading website checks...</p></mat-card-content></mat-card></section>
+    }
+  }
+</main>
