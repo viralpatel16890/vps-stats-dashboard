@@ -303,9 +303,11 @@ mat-card {
 .treemap {
 	min-height: 160px;
 	display: flex;
-	gap: 0.4rem;
-	overflow-x: auto;
-	overflow-y: hidden;
+	gap: 0; /* Remove gap for seamless bar look */
+	overflow: hidden; /* No scrolling for distribution view */
+	border-radius: 0.6rem;
+	background: #f0f3f5;
+	border: 1px solid #dce7ee;
 }
 
 .tree-node {
@@ -313,15 +315,20 @@ mat-card {
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
-	border-radius: 0.6rem;
-	padding: 0.5rem;
-	min-width: 75px;
+	padding: 0.5rem 0.2rem;
+	min-width: 0; /* Allow shrinking below min-content */
 	color: #102531;
 	background: linear-gradient(170deg, #b4ddea 0%, #74b3ce 100%);
 	overflow: hidden;
-	transition: transform 180ms ease;
+	transition: all 180ms ease;
 	text-align: center;
-	flex-shrink: 0;
+	flex-shrink: 0; /* Width is handled by style.width.% */
+	white-space: nowrap;
+	border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tree-node:last-child {
+	border-right: none;
 }
 
 .tree-node:nth-child(2n) {
@@ -332,14 +339,28 @@ mat-card {
 	background: linear-gradient(170deg, #bce4cd 0%, #76b48b 100%);
 }
 
+.node-free {
+	background: linear-gradient(170deg, #e1e8ed 0%, #cbd5e0 100%) !important;
+	color: #4a5568;
+}
+
+.node-other {
+	background: linear-gradient(170deg, #cbd5e0 0%, #a0aec0 100%) !important;
+	color: #2d3748;
+}
+
 .tree-node:hover {
-	transform: scale(1.02);
+	filter: brightness(1.05);
+	z-index: 1;
 }
 
 .node-path {
 	font-weight: 700;
 	font-size: 0.8rem;
 	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	width: 100%;
 }
 
 .node-percent {
@@ -353,6 +374,32 @@ mat-card {
 	font-size: 0.7rem;
 	opacity: 0.85;
 	margin: 0;
+}
+
+/* Hide labels if node is too small */
+.tree-node[style*="width: 0."],
+.tree-node[style*="width: 1."],
+.tree-node[style*="width: 2."],
+.tree-node[style*="width: 3."] {
+	.node-path, .node-percent, .node-size {
+		opacity: 0;
+		visibility: hidden;
+	}
+}
+
+:host-context(body.dark-theme) .treemap {
+	background: #121b24;
+	border-color: #2a3a47;
+}
+
+:host-context(body.dark-theme) .node-free {
+	background: linear-gradient(170deg, #2d3748 0%, #1a202c 100%) !important;
+	color: #a0aec0;
+}
+
+:host-context(body.dark-theme) .node-other {
+	background: linear-gradient(170deg, #4a5568 0%, #2d3748 100%) !important;
+	color: #cbd5e0;
 }
 
 .spinner-wrap {

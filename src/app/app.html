@@ -124,17 +124,18 @@
     <section class="treemap-section">
       <mat-card>
         <mat-card-header>
-          <mat-card-title>Storage Usage Tree Map</mat-card-title>
+          <mat-card-title>Storage Distribution (Total: {{ data.disk.totalBytes / 1073741824 | number: '1.1-1' }} GB)</mat-card-title>
         </mat-card-header>
         <mat-card-content>
           <div class="treemap" *ngIf="data.storageTree.length; else noTree">
             <div
               class="tree-node"
               *ngFor="let node of data.storageTree; trackBy: trackByTreeNode"
-              [style.flex]="node.ratio"
+              [style.width.%]="node.ratio * 100"
+              [ngClass]="{ 'node-free': node.path === '[free]', 'node-other': node.path === '[other]' }"
               [attr.title]="node.path + ' - ' + (node.sizeBytes / 1073741824 | number: '1.1-1') + ' GB'"
             >
-              <span class="node-path">{{ node.path }}</span>
+              <span class="node-path">{{ node.path === '[free]' ? 'Free' : (node.path === '[other]' ? 'Other' : node.path) }}</span>
               <span class="node-percent">{{ node.ratio * 100 | number: '0.1-1' }}%</span>
               <small class="node-size">{{ node.sizeBytes / 1073741824 | number: '1.1-1' }} GB</small>
             </div>

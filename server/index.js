@@ -103,13 +103,15 @@ async function collectMetrics() {
   // Sample CPU before running expensive probes to avoid self-inflated readings.
   const cpuUsagePercent = await getCpuUsagePercent();
 
-  const [diskUsage, dockerStatus, databaseStatus, storageTree, websites] = await Promise.all([
+  const [diskUsage, dockerStatus, databaseStatus, websites] = await Promise.all([
     getDiskUsage(),
     getDockerStatus(),
     getDatabaseStatus(),
-    getStorageTreeMapCached(),
     getWebsiteStatusCached()
   ]);
+
+  // Use the collected diskUsage to calculate storage tree with proper ratios relative to total capacity
+  const storageTree = await getStorageTreeMapCached(diskUsage.totalBytes, diskUsage.usedBytes);
 
   const totalMemory = os.totalmem();
   const usedMemory = totalMemory - os.freemem();
@@ -253,40 +255,16 @@ async function getDatabaseStatus() {
   };
 }
 
-async function getStorageTreeMap() {
+async function getStorageTreeMap(totalBytes, usedBytes) {
   const tree = await safeExec(
     'bash',
     ['-lc', "du -x -B1 -d 1 / 2>/dev/null | sort -nr | head -n 12"],
     { timeoutMs: 45000 }
   );
 
-  const rows = tree.stdout
-    .trim()
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [sizeRaw, path] = line.split(/\s+/, 2);
-      return {
-        path,
-        sizeBytes: Number(sizeRaw || 0)
-      };
-    });
-
-  if (!tree.ok || rows.length <= 1) {
-    const fallback = await safeExec(
-      'bash',
-      [
-        '-lc',
-        "for p in /var /usr /opt /home /etc /root /tmp; do [ -d \"$p\" ] && du -sx -B1 \"$p\" 2>/dev/null; done | sort -nr | head -n 8"
-      ],
-      { timeoutMs: 18000 }
-    );
-    if (!fallback.ok) {
-      return [];
-    }
-
-    const fallbackRows = fallback.stdout
+  let rows = [];
+  if (tree.ok) {
+    rows = tree.stdout
       .trim()
       .split('\n')
       .map((line) => line.trim())
@@ -298,35 +276,74 @@ async function getStorageTreeMap() {
           sizeBytes: Number(sizeRaw || 0)
         };
       })
-      .filter((entry) => entry.sizeBytes > 0)
-      .slice(0, 8);
-
-    const fallbackTotal = fallbackRows.reduce((acc, node) => acc + node.sizeBytes, 0);
-    return fallbackRows.map((entry) => ({
-      ...entry,
-      ratio: Number((entry.sizeBytes / Math.max(fallbackTotal, 1)).toFixed(4))
-    }));
+      .filter((entry) => entry.path !== '/' && entry.path !== '');
   }
 
-  const root = rows.find((entry) => entry.path === '/');
-  const total = root?.sizeBytes || rows.reduce((acc, node) => acc + node.sizeBytes, 0);
+  if (rows.length === 0) {
+    const fallback = await safeExec(
+      'bash',
+      [
+        '-lc',
+        "for p in /var /usr /opt /home /etc /root /tmp; do [ -d \"$p\" ] && du -sx -B1 \"$p\" 2>/dev/null; done | sort -nr | head -n 8"
+      ],
+      { timeoutMs: 18000 }
+    );
+    if (fallback.ok) {
+      rows = fallback.stdout
+        .trim()
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [sizeRaw, path] = line.split(/\s+/, 2);
+          return {
+            path,
+            sizeBytes: Number(sizeRaw || 0)
+          };
+        });
+    }
+  }
 
-  return rows
-    .filter((entry) => entry.path !== '/' && entry.sizeBytes > 0)
-    .slice(0, 8)
-    .map((entry) => ({
-      ...entry,
-      ratio: Number((entry.sizeBytes / Math.max(total, 1)).toFixed(4))
-    }));
+  // Sort and take top 8 directories
+  rows.sort((a, b) => b.sizeBytes - a.sizeBytes);
+  const topRows = rows.slice(0, 8);
+  const sumTop = topRows.reduce((acc, node) => acc + node.sizeBytes, 0);
+
+  const results = topRows.map((entry) => ({
+    ...entry,
+    ratio: Number((entry.sizeBytes / Math.max(totalBytes, 1)).toFixed(4))
+  }));
+
+  // Add "Other files" (Used - sum of top directories)
+  const otherBytes = Math.max(0, usedBytes - sumTop);
+  if (otherBytes > 0) {
+    results.push({
+      path: '[other]',
+      sizeBytes: otherBytes,
+      ratio: Number((otherBytes / Math.max(totalBytes, 1)).toFixed(4))
+    });
+  }
+
+  // Add "Free Space"
+  const freeBytes = Math.max(0, totalBytes - usedBytes);
+  if (freeBytes > 0) {
+    results.push({
+      path: '[free]',
+      sizeBytes: freeBytes,
+      ratio: Number((freeBytes / Math.max(totalBytes, 1)).toFixed(4))
+    });
+  }
+
+  return results;
 }
 
-async function getStorageTreeMapCached() {
+async function getStorageTreeMapCached(totalBytes, usedBytes) {
   const now = Date.now();
   if (storageTreeCache.payload.length && now < storageTreeCache.expiresAt) {
     return storageTreeCache.payload;
   }
 
-  const tree = await getStorageTreeMap();
+  const tree = await getStorageTreeMap(totalBytes, usedBytes);
   storageTreeCache = {
     payload: tree,
     expiresAt: Date.now() + STORAGE_TREE_CACHE_TTL_MS
