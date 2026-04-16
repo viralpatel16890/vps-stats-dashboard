@@ -388,16 +388,31 @@ async function getWebsiteStatusCached() {
   const checks = await Promise.all(
     WEBSITE_TARGETS.map(async (host) => {
       const startedAt = Date.now();
-      const result = await safeExec(
-        'curl',
-        ['-sk', '--connect-timeout', '5', '--max-time', '8', '-o', '/dev/null', '-w', '%{http_code}', `https://${host}`],
-        { timeoutMs: 10000 }
-      );
+      let httpCode = 0;
+      let status = 'down';
 
-      const httpCode = Number((result.stdout || '').trim() || 0);
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch(`https://${host}`, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'StatsDashboard/1.0'
+          }
+        });
+
+        clearTimeout(timeout);
+        httpCode = response.status;
+        status = httpCode >= 200 && httpCode < 400 ? 'up' : 'down';
+      } catch (error) {
+        // httpCode remains 0, status remains 'down'
+      }
+
       return {
         host,
-        status: httpCode >= 200 && httpCode < 400 ? 'up' : 'down',
+        status,
         httpCode,
         responseMs: Date.now() - startedAt,
         checkedAt: new Date().toISOString()
