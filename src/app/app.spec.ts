@@ -52,6 +52,6 @@ describe('App', () => {
     const app = fixture.componentInstance;
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Stats Control Deck');
+    expect(compiled.querySelector('h1')?.textContent).stringContaining('Stats Control Deck');
   });
 });
