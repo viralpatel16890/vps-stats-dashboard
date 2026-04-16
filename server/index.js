@@ -90,11 +90,13 @@ app.get('/events', (req, res) => {
   });
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`stats-dashboard-api listening on http://${HOST}:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, HOST, () => {
+    console.log(`stats-dashboard-api listening on http://${HOST}:${PORT}`);
+  });
+}
 
-async function getMetricsWithCache(forceFresh) {
+export async function getMetricsWithCache(forceFresh) {
   const now = Date.now();
 
   if (!forceFresh && metricsCache.payload && now < metricsCache.expiresAt) {
@@ -126,7 +128,7 @@ async function getMetricsWithCache(forceFresh) {
   return metricsInFlight;
 }
 
-async function collectMetrics() {
+export async function collectMetrics() {
   // Sample CPU before running expensive probes to avoid self-inflated readings.
   const cpuUsagePercent = await getCpuUsagePercent();
 
@@ -161,7 +163,7 @@ async function collectMetrics() {
   };
 }
 
-async function getCpuUsagePercent() {
+export async function getCpuUsagePercent() {
   const start = cpuSnapshot();
   await sleep(300);
   const end = cpuSnapshot();
@@ -175,7 +177,7 @@ async function getCpuUsagePercent() {
   return Number(((1 - idleDiff / totalDiff) * 100).toFixed(2));
 }
 
-function cpuSnapshot() {
+export function cpuSnapshot() {
   return os.cpus().reduce(
     (acc, core) => {
       const times = core.times;
@@ -188,7 +190,7 @@ function cpuSnapshot() {
   );
 }
 
-async function getDiskUsage() {
+export async function getDiskUsage() {
   const { stdout } = await safeExec('df', ['-B1', '--output=size,used,avail,pcent,target', '/']);
   const lines = stdout.trim().split('\n');
   const details = lines[1]?.trim().split(/\s+/) ?? [];
@@ -208,7 +210,7 @@ async function getDiskUsage() {
   };
 }
 
-async function getDockerStatus() {
+export async function getDockerStatus() {
   const info = await safeExec('docker', ['info']);
   if (!info.ok) {
     return {
@@ -248,7 +250,7 @@ async function getDockerStatus() {
   };
 }
 
-async function getDatabaseStatus() {
+export async function getDatabaseStatus() {
   const engines = ['mysql', 'mariadb', 'postgres', 'mongodb', 'redis'];
   const dockerDb = await safeExec('docker', ['ps', '--format', '{{.Image}} {{.Names}}']);
 
@@ -282,7 +284,7 @@ async function getDatabaseStatus() {
   };
 }
 
-async function getStorageTreeMap(totalBytes, usedBytes) {
+export async function getStorageTreeMap(totalBytes, usedBytes) {
   const tree = await safeExec(
     'bash',
     ['-lc', "du -x -B1 -d 1 / 2>/dev/null | sort -nr | head -n 12"],
@@ -364,7 +366,7 @@ async function getStorageTreeMap(totalBytes, usedBytes) {
   return results;
 }
 
-async function getStorageTreeMapCached(totalBytes, usedBytes) {
+export async function getStorageTreeMapCached(totalBytes, usedBytes) {
   const now = Date.now();
   if (storageTreeCache.payload.length && now < storageTreeCache.expiresAt) {
     return storageTreeCache.payload;
@@ -379,7 +381,7 @@ async function getStorageTreeMapCached(totalBytes, usedBytes) {
   return tree;
 }
 
-async function getWebsiteStatusCached() {
+export async function getWebsiteStatusCached() {
   const now = Date.now();
   if (websiteStatusCache.payload.length && now < websiteStatusCache.expiresAt) {
     return websiteStatusCache.payload;
@@ -428,7 +430,7 @@ async function getWebsiteStatusCached() {
   return checks;
 }
 
-async function safeExec(command, args, options = {}) {
+export async function safeExec(command, args, options = {}) {
   try {
     const output = await execFileAsync(command, args, {
       timeout: options.timeoutMs ?? 12000,
@@ -448,15 +450,17 @@ async function safeExec(command, args, options = {}) {
   }
 }
 
-function pct(used, total) {
+export function pct(used, total) {
   if (total <= 0) {
     return 0;
   }
   return Number(((used / total) * 100).toFixed(2));
 }
 
-function sleep(ms) {
+export function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 }
+
+export default app;
