@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import os from 'node:os';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
@@ -44,6 +45,7 @@ app.use(helmet({
   contentSecurityPolicy: false
 }));
 app.use(cors());
+app.use(compression());
 
 app.get('/health', (_, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
