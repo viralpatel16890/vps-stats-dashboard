@@ -63,6 +63,31 @@ app.get('/metrics', async (req, res) => {
   }
 });
 
+app.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendEvent = async () => {
+    try {
+      const payload = await getMetricsWithCache(false);
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (error) {
+      console.error('SSE Error:', error);
+    }
+  };
+
+  // Send initial data
+  sendEvent();
+
+  const interval = setInterval(sendEvent, 10000); // Stream every 10s
+
+  req.on('close', () => {
+    clearInterval(interval);
+  });
+});
+
 app.listen(PORT, HOST, () => {
   console.log(`stats-dashboard-api listening on http://${HOST}:${PORT}`);
 });

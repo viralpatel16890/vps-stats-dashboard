@@ -64,6 +64,14 @@ interface MetricsResponse {
   }>;
 }
 
+interface TreemapRect {
+  node: TreeNode;
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
 @Component({
   selector: 'app-root',
   imports: [
@@ -86,7 +94,7 @@ interface MetricsResponse {
 })
 export class App implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
-  private refreshTimer: ReturnType<typeof setInterval> | undefined;
+  private eventSource: EventSource | null = null;
 
   protected readonly title = signal('Stats Control Deck');
   protected readonly loading = signal(false);
@@ -94,6 +102,59 @@ export class App implements OnInit, OnDestroy {
   protected readonly metrics = signal<MetricsResponse | null>(null);
   protected readonly lastUpdated = signal<Date | null>(null);
   protected readonly isDarkMode = signal(false);
+  protected readonly selectedNode = signal<TreeNode | null>(null);
+
+  protected readonly treemapLayout = computed(() => {
+    const data = this.metrics();
+    if (!data || !data.storageTree.length) return [];
+
+    const nodes = data.storageTree;
+    const rects: TreemapRect[] = [];
+    
+    // Simple tiling algorithm (Binary Split)
+    const compute = (
+      items: TreeNode[],
+      x: number,
+      y: number,
+      width: number,
+      height: number
+    ) => {
+      if (items.length === 0) return;
+      if (items.length === 1) {
+        rects.push({ node: items[0], top: y, left: x, width, height });
+        return;
+      }
+
+      const totalRatio = items.reduce((sum, item) => sum + item.ratio, 0);
+      let halfRatio = 0;
+      let mid = 0;
+      for (let i = 0; i < items.length - 1; i++) {
+        halfRatio += items[i].ratio;
+        mid = i + 1;
+        if (halfRatio >= totalRatio / 2) break;
+      }
+
+      const leftItems = items.slice(0, mid);
+      const rightItems = items.slice(mid);
+      const ratio = halfRatio / totalRatio;
+
+      if (width > height) {
+        // Horizontal split
+        const leftWidth = width * ratio;
+        compute(leftItems, x, y, leftWidth, height);
+        compute(rightItems, x + leftWidth, y, width - leftWidth, height);
+      } else {
+        // Vertical split
+        const leftHeight = height * ratio;
+        compute(leftItems, x, y, width, leftHeight);
+        compute(rightItems, x, y + leftHeight, width, height - leftHeight);
+      }
+    };
+
+    compute(nodes, 0, 0, 100, 100);
+    return rects;
+  });
+
   protected readonly healthStatus = computed(() => {
     const data = this.metrics();
     if (!data) {
@@ -120,12 +181,39 @@ export class App implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.initializeTheme();
     this.refresh();
-    this.refreshTimer = setInterval(() => this.refresh(), 2 * 60 * 60 * 1000);
+    this.setupSSE();
   }
 
   ngOnDestroy(): void {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
+    this.closeSSE();
+  }
+
+  private setupSSE(): void {
+    this.closeSSE();
+    this.eventSource = new EventSource('/api/events');
+
+    this.eventSource.onmessage = (event) => {
+      try {
+        const data: MetricsResponse = JSON.parse(event.data);
+        this.metrics.set(data);
+        this.lastUpdated.set(new Date(data.timestamp));
+        this.error.set(null);
+      } catch (err) {
+        console.error('Failed to parse SSE data', err);
+      }
+    };
+
+    this.eventSource.onerror = () => {
+      console.warn('SSE connection lost. Retrying in 5s...');
+      this.closeSSE();
+      setTimeout(() => this.setupSSE(), 5000);
+    };
+  }
+
+  private closeSSE(): void {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
     }
   }
 
@@ -195,8 +283,8 @@ export class App implements OnInit, OnDestroy {
     return engine.name;
   }
 
-  protected trackByTreeNode(_: number, node: TreeNode): string {
-    return node.path;
+  protected trackByTreeNode(_: number, rect: TreemapRect): string {
+    return rect.node.path;
   }
 
   protected trackByWebsite(_: number, site: MetricsResponse['websites'][number]): string {

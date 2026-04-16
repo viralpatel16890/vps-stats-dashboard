@@ -1,10 +1,16 @@
 import { TestBed } from '@angular/core/testing';
 import { App } from './app';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting()
+      ]
     }).compileComponents();
   });
 
@@ -16,8 +22,9 @@ describe('App', () => {
 
   it('should render title', async () => {
     const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
+    const app = fixture.componentInstance;
+    fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, stats-dashboard');
+    expect(compiled.querySelector('h1')?.textContent).toContain('Stats Control Deck');
   });
 });
