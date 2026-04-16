@@ -1,4 +1,4 @@
-import { DecimalPipe, NgClass, NgFor, NgIf, PercentPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgClass, NgFor, NgIf, PercentPipe, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -72,6 +72,8 @@ interface MetricsResponse {
     NgClass,
     DecimalPipe,
     PercentPipe,
+    DatePipe,
+    TitleCasePipe,
     MatButtonModule,
     MatCardModule,
     MatChipsModule,

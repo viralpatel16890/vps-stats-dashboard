@@ -9,18 +9,20 @@
     <div class="actions">
       <div class="status-row">
         <div class="health-badge" [style.borderColor]="healthStatus().color">
+          <span class="status-dot" [style.backgroundColor]="healthStatus().color"></span>
           <span [style.color]="healthStatus().color">{{ healthStatus().text }}</span>
         </div>
         @if (lastUpdated()) {
-          <span class="last-updated">Synced now</span>
+          <span class="last-updated">Synced {{ lastUpdated() | date: 'shortTime' }}</span>
         }
       </div>
       <div class="btn-row">
-        <button mat-flat-button class="theme-btn" (click)="toggleTheme()" type="button">
+        <button mat-stroked-button class="theme-btn" (click)="toggleTheme()" type="button">
+          <span class="theme-icon">{{ isDarkMode() ? '☀️' : '🌙' }}</span>
           {{ isDarkMode() ? 'Light' : 'Dark' }}
         </button>
         <button mat-flat-button class="refresh-btn" (click)="refresh()" [disabled]="loading()">
-          <span class="refresh-glyph" aria-hidden="true">↻</span>
+          <span class="refresh-glyph" [class.spinning]="loading()" aria-hidden="true">↻</span>
           Refresh now
         </button>
       </div>
@@ -103,18 +105,24 @@
 
       <mat-card>
         <mat-card-header>
-          <mat-card-title>Database Status</mat-card-title>
+          <mat-card-title>Database Engines</mat-card-title>
+          <div class="card-header-actions">
+            <span class="overall-status-chip" [ngClass]="data.database.overall === 'up' ? 'chip-up' : (data.database.overall === 'down' ? 'chip-down' : 'chip-unknown')">
+              {{ data.database.overall === 'up' ? 'Online' : (data.database.overall === 'down' ? 'Offline' : 'Not detected') }}
+            </span>
+          </div>
         </mat-card-header>
         <mat-card-content>
-          <mat-chip-listbox>
-            <mat-chip [ngClass]="data.database.overall === 'up' ? 'chip-up' : (data.database.overall === 'down' ? 'chip-down' : 'chip-unknown')">
-              {{ data.database.overall === 'up' ? 'Online' : (data.database.overall === 'down' ? 'Offline' : 'Not detected') }}
-            </mat-chip>
-          </mat-chip-listbox>
-          <div class="db-grid">
-            <p class="meta" *ngFor="let engine of data.database.engines; trackBy: trackByEngine">
-              {{ engine.name }}: {{ engine.status }}
-            </p>
+          <div class="db-grid-v2">
+            <div class="db-engine-item" *ngFor="let engine of data.database.engines; trackBy: trackByEngine">
+              <div class="engine-info">
+                <span class="engine-name">{{ engine.name }}</span>
+                <span class="engine-source">{{ engine.source }}</span>
+              </div>
+              <span class="engine-status-indicator" [ngClass]="'status-' + engine.status">
+                {{ engine.status | titlecase }}
+              </span>
+            </div>
           </div>
         </mat-card-content>
       </mat-card>
