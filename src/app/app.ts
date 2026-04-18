@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe, NgClass, PercentPipe, TitleCasePipe } from '@angular/common';
+import { NgClass, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -76,9 +76,6 @@ interface TreemapRect {
   selector: 'app-root',
   imports: [
     NgClass,
-    DecimalPipe,
-    PercentPipe,
-    DatePipe,
     TitleCasePipe,
     MatButtonModule,
     MatCardModule,
