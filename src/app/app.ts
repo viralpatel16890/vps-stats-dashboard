@@ -1,11 +1,13 @@
-import { NgClass, TitleCasePipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgClass, PercentPipe, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { finalize } from 'rxjs';
 
 interface HealthStatus {
@@ -77,11 +79,16 @@ interface TreemapRect {
   imports: [
     NgClass,
     TitleCasePipe,
+    DatePipe,
+    PercentPipe,
+    DecimalPipe,
     MatButtonModule,
     MatCardModule,
     MatChipsModule,
     MatProgressBarModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatIconModule,
+    MatTooltipModule
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -168,24 +175,25 @@ export class App implements OnInit, OnDestroy {
     const websites = this.websites();
 
     if (!cpu || !memory || !disk || !docker || !database) {
-      return { color: 'gray', text: 'Loading' };
+      return { color: 'gray', text: 'Loading', details: 'Fetching system metrics...' };
     }
 
-    const criticalCount =
-      (cpu.usagePercent >= 85 ? 1 : 0) +
-      (memory.usagePercent >= 85 ? 1 : 0) +
-      (disk.usagePercent >= 85 ? 1 : 0) +
-      (docker.stoppedCount > 0 ? 1 : 0) +
-      (database.overall === 'down' ? 1 : 0) +
-      (websites.filter((w) => w.status === 'down').length > 0 ? 1 : 0);
+    const issues: string[] = [];
+    if (cpu.usagePercent >= 85) issues.push('High CPU Usage');
+    if (memory.usagePercent >= 85) issues.push('High Memory Usage');
+    if (disk.usagePercent >= 85) issues.push('Low Disk Space');
+    if (docker.stoppedCount > 0) issues.push(`${docker.stoppedCount} Docker Containers Stopped`);
+    if (database.overall === 'down') issues.push('Database Engines Offline');
+    const downSites = websites.filter((w) => w.status === 'down').length;
+    if (downSites > 0) issues.push(`${downSites} Websites Offline`);
 
-    if (criticalCount >= 3) {
-      return { color: '#b33d3d', text: '● Critical' };
+    if (issues.length >= 3) {
+      return { color: '#b33d3d', text: 'Critical', details: issues.join(', ') };
     }
-    if (criticalCount >= 1) {
-      return { color: '#a26d1f', text: '● Caution' };
+    if (issues.length >= 1) {
+      return { color: '#a26d1f', text: 'Caution', details: issues.join(', ') };
     }
-    return { color: '#1f7a5a', text: '✓ Healthy' };
+    return { color: '#1f7a5a', text: 'Healthy', details: 'All systems operational' };
   });
 
   ngOnInit(): void {

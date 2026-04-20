@@ -1,21 +1,107 @@
-    <section class="status-grid-2-col">
+<main class="dashboard-shell">
+  <header class="dashboard-header">
+    <div class="brand">
+      <p class="eyebrow">stats.viralpatelstudio.in</p>
+      <h1>{{ title() }}</h1>
+    </div>
+
+    <div class="actions">
+      <div class="meta-info">
+        <div class="health-badge" [style.borderColor]="healthStatus().color" [matTooltip]="healthStatus().details">
+          <span class="status-dot" [style.backgroundColor]="healthStatus().color"></span>
+          <span [style.color]="healthStatus().color">{{ healthStatus().text }}</span>
+        </div>
+        @if (lastUpdated()) {
+          <span class="sync-time">Synced {{ lastUpdated() | date: 'shortTime' }}</span>
+        }
+      </div>
+      <div class="button-group">
+        <button mat-icon-button (click)="toggleTheme()" [title]="'Switch to ' + (isDarkMode() ? 'Light' : 'Dark') + ' mode'">
+          <mat-icon>{{ isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+        <button mat-flat-button class="refresh-btn" (click)="refresh()" [disabled]="loading()">
+          <mat-icon class="refresh-glyph" [class.spinning]="loading()">refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  @if (error()) {
+    <mat-card class="error-card compact">
+      <mat-card-content>{{ error() }}</mat-card-content>
+    </mat-card>
+  }
+
+  @if (loading() && !cpu()) {
+    <div class="spinner-wrap">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  }
+
+  <div class="main-layout-grid">
+    <!-- Top row: Vital Metrics -->
+    @if (cpu(); as cpuData) {
+      <section class="vitals-row">
+        <mat-card class="metric-card">
+          <mat-card-header>
+            <mat-card-subtitle>CPU</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="metric-display">
+              <span class="value" [ngClass]="usageClass(cpuData.usagePercent)">{{ cpuData.usagePercent / 100 | percent: '1.0-0' }}</span>
+              <mat-progress-bar mode="determinate" [value]="cpuData.usagePercent"></mat-progress-bar>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        @if (memory(); as memData) {
+          <mat-card class="metric-card">
+            <mat-card-header>
+              <mat-card-subtitle>Memory</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="metric-display">
+                <span class="value" [ngClass]="usageClass(memData.usagePercent)">{{ memData.usagePercent / 100 | percent: '1.0-0' }}</span>
+                <span class="sub-value">{{ memData.usedBytes / 1073741824 | number: '1.1-1' }} / {{ memData.totalBytes / 1073741824 | number: '1.1-1' }} GB</span>
+                <mat-progress-bar mode="determinate" [value]="memData.usagePercent"></mat-progress-bar>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
+
+        @if (disk(); as diskData) {
+          <mat-card class="metric-card">
+            <mat-card-header>
+              <mat-card-subtitle>Disk ({{ diskData.mount }})</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="metric-display">
+                <span class="value" [ngClass]="usageClass(diskData.usagePercent)">{{ diskData.usagePercent / 100 | percent: '1.0-0' }}</span>
+                <span class="sub-value">{{ diskData.usedBytes / 1073741824 | number: '1.1-1' }} GB used</span>
+                <mat-progress-bar mode="determinate" [value]="diskData.usagePercent"></mat-progress-bar>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
+      </section>
+    }
+
+    <!-- Middle row: Containers and DB -->
+    <div class="status-split-grid">
       @if (docker(); as dockerData) {
-      <mat-card>
+      <mat-card class="status-card">
         <mat-card-header>
-          <mat-card-title>Docker Status</mat-card-title>
+          <mat-card-title>Docker Containers</mat-card-title>
+          <span class="header-count">{{ dockerData.runningCount }} up</span>
         </mat-card-header>
         <mat-card-content>
-          <p class="status-summary"><strong>Running:</strong> {{ dockerData.runningCount }} | <strong>Stopped:</strong> {{ dockerData.stoppedCount }}</p>
-          <div class="container-list">
+          <div class="compact-container-list">
             @for (container of dockerData.containers; track container.name) {
-              <div class="container-item" [style.borderLeftColor]="getContainerStatusColor(container.state)">
-                <div class="container-header">
-                  <span class="container-name" [style.color]="getContainerStatusColor(container.state)">{{ container.name }}</span>
-                </div>
-                <div class="container-meta">{{ container.state }} · {{ container.status }}</div>
+              <div class="mini-item" [style.borderLeftColor]="getContainerStatusColor(container.state)">
+                <span class="name" [style.color]="getContainerStatusColor(container.state)">{{ container.name }}</span>
+                <span class="meta">{{ container.status }}</span>
               </div>
-            } @empty {
-              <p class="meta">No containers found.</p>
             }
           </div>
         </mat-card-content>
@@ -23,30 +109,95 @@
       }
 
       @if (database(); as dbData) {
-      <mat-card>
+      <mat-card class="status-card">
         <mat-card-header>
           <mat-card-title>Database Engines</mat-card-title>
-          <div class="card-header-actions">
-            <span class="overall-status-chip" [ngClass]="dbData.overall === 'up' ? 'chip-up' : (dbData.overall === 'down' ? 'chip-down' : 'chip-unknown')">
-              {{ dbData.overall === 'up' ? 'Online' : (dbData.overall === 'down' ? 'Offline' : 'Not detected') }}
-            </span>
-          </div>
+          <span class="header-chip" [ngClass]="'chip-' + dbData.overall">{{ dbData.overall | titlecase }}</span>
         </mat-card-header>
         <mat-card-content>
-          <div class="db-grid-v2">
+          <div class="compact-db-list">
             @for (engine of dbData.engines; track engine.name) {
-              <div class="db-engine-item">
-                <div class="engine-info">
-                  <span class="engine-name">{{ engine.name }}</span>
-                  <span class="engine-source">{{ engine.source }}</span>
-                </div>
-                <span class="engine-status-indicator" [ngClass]="'status-' + engine.status">
-                  {{ engine.status | titlecase }}
-                </span>
+              <div class="db-mini-item">
+                <span class="name">{{ engine.name }}</span>
+                <span class="source">{{ engine.source }}</span>
+                <span class="indicator" [ngClass]="'status-' + engine.status"></span>
               </div>
             }
           </div>
         </mat-card-content>
       </mat-card>
       }
-    </section>
+    </div>
+
+    <!-- Bottom sections: Storage and Websites -->
+    <div class="footer-grid">
+      @if (disk()) {
+        <section class="treemap-wrapper">
+          <mat-card class="footer-card">
+            <mat-card-header>
+              <mat-card-title>Storage Distribution</mat-card-title>
+              @if (selectedNode()) {
+                <span class="selected-path">{{ selectedNode()?.path }}</span>
+              }
+            </mat-card-header>
+            <mat-card-content>
+              <div class="mini-treemap">
+                @for (rect of treemapLayout(); track rect.node.path) {
+                  <div class="node-bar"
+                    [style.width.%]="rect.node.ratio * 100"
+                    [ngClass]="{
+                      'node-free': rect.node.path === '[free]',
+                      'node-huge': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.20,
+                      'node-large': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.10 && rect.node.ratio <= 0.20,
+                      'node-medium': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.05 && rect.node.ratio <= 0.10,
+                      'node-other': rect.node.path === '[other]',
+                      'active': selectedNode()?.path === rect.node.path
+                    }"
+                    (click)="selectedNode.set(rect.node)"
+                    [attr.title]="rect.node.path">
+                  </div>
+                }
+              </div>
+              <div class="treemap-legend">
+                @for (rect of treemapLayout(); track rect.node.path) {
+                  @if (rect.node.ratio > 0.05) {
+                    <span class="legend-item" (click)="selectedNode.set(rect.node)">
+                      <span class="dot" [ngClass]="{
+                        'node-free': rect.node.path === '[free]',
+                        'node-huge': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.20,
+                        'node-large': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.10 && rect.node.ratio <= 0.20,
+                        'node-medium': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.05 && rect.node.ratio <= 0.10,
+                        'node-other': rect.node.path === '[other]'
+                      }"></span>
+                      {{ rect.node.path === '[free]' ? 'Free' : (rect.node.path === '[other]' ? 'Other' : rect.node.path) }}
+                    </span>
+                  }
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </section>
+      }
+
+      <section class="websites-wrapper">
+        <mat-card class="footer-card">
+          <mat-card-header>
+            <mat-card-title>Uptime</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="uptime-grid">
+              @for (site of websites(); track site.host) {
+                <div class="site-label-item" [attr.title]="site.host + ': ' + site.responseMs + 'ms'">
+                  <div class="site-dot" [ngClass]="site.status">
+                    <a [href]="'https://' + site.host" target="_blank" rel="noopener"></a>
+                  </div>
+                  <span class="site-name">{{ site.host.split('.')[0] }}</span>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </section>
+    </div>
+  </div>
+</main>
