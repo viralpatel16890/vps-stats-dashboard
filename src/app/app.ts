@@ -63,6 +63,7 @@ interface MetricsResponse {
     httpCode: number;
     responseMs: number;
     checkedAt: string;
+    uptimeLabel?: string;
   }>;
 }
 

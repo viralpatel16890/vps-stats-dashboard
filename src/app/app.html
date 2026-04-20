@@ -87,7 +87,7 @@
       </section>
     }
 
-    <!-- Middle row: Containers and DB -->
+    <!-- Second row: Docker and Uptime -->
     <div class="status-split-grid">
       @if (docker(); as dockerData) {
       <mat-card class="status-card">
@@ -108,19 +108,18 @@
       </mat-card>
       }
 
-      @if (database(); as dbData) {
-      <mat-card class="status-card">
+      @if (websites(); as siteList) {
+      <mat-card class="status-card uptime-card">
         <mat-card-header>
-          <mat-card-title>Database Engines</mat-card-title>
-          <span class="header-chip" [ngClass]="'chip-' + dbData.overall">{{ dbData.overall | titlecase }}</span>
+          <mat-card-title>Uptime</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <div class="compact-db-list">
-            @for (engine of dbData.engines; track engine.name) {
-              <div class="db-mini-item">
-                <span class="name">{{ engine.name }}</span>
-                <span class="source">{{ engine.source }}</span>
-                <span class="indicator" [ngClass]="'status-' + engine.status"></span>
+          <div class="uptime-list">
+            @for (site of siteList; track site.host) {
+              <div class="site-item" [attr.title]="site.host + ': ' + site.responseMs + 'ms'">
+                <span class="site-dot" [ngClass]="site.status"></span>
+                <a [href]="'https://' + site.host" target="_blank" rel="noopener" class="site-link">{{ site.host.split('.')[0] }}</a>
+                <span class="site-response">{{ site.responseMs }}ms</span>
               </div>
             }
           </div>
@@ -129,75 +128,86 @@
       }
     </div>
 
-    <!-- Bottom sections: Storage and Websites -->
-    <div class="footer-grid">
-      @if (disk()) {
-        <section class="treemap-wrapper">
-          <mat-card class="footer-card">
-            <mat-card-header>
-              <mat-card-title>Storage Distribution</mat-card-title>
-              @if (selectedNode()) {
-                <span class="selected-path">{{ selectedNode()?.path }}</span>
-              }
-            </mat-card-header>
-            <mat-card-content>
-              <div class="mini-treemap">
-                @for (rect of treemapLayout(); track rect.node.path) {
-                  <div class="node-bar"
-                    [style.width.%]="rect.node.ratio * 100"
-                    [ngClass]="{
-                      'node-free': rect.node.path === '[free]',
-                      'node-huge': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.20,
-                      'node-large': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.10 && rect.node.ratio <= 0.20,
-                      'node-medium': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.05 && rect.node.ratio <= 0.10,
-                      'node-other': rect.node.path === '[other]',
-                      'active': selectedNode()?.path === rect.node.path
-                    }"
-                    (click)="selectedNode.set(rect.node)"
-                    [attr.title]="rect.node.path">
-                  </div>
-                }
-              </div>
-              <div class="treemap-legend">
-                @for (rect of treemapLayout(); track rect.node.path) {
-                  @if (rect.node.ratio > 0.05) {
-                    <span class="legend-item" (click)="selectedNode.set(rect.node)">
-                      <span class="dot" [ngClass]="{
-                        'node-free': rect.node.path === '[free]',
-                        'node-huge': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.20,
-                        'node-large': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.10 && rect.node.ratio <= 0.20,
-                        'node-medium': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.ratio > 0.05 && rect.node.ratio <= 0.10,
-                        'node-other': rect.node.path === '[other]'
-                      }"></span>
-                      {{ rect.node.path === '[free]' ? 'Free' : (rect.node.path === '[other]' ? 'Other' : rect.node.path) }}
-                    </span>
-                  }
-                }
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </section>
-      }
-
-      <section class="websites-wrapper">
+    <!-- Full-width storage section -->
+    @if (disk()) {
+      <section class="storage-wrapper">
         <mat-card class="footer-card">
           <mat-card-header>
-            <mat-card-title>Uptime</mat-card-title>
+            <mat-card-title>Storage Distribution</mat-card-title>
+            @if (selectedNode()) {
+              <span class="selected-path">{{ selectedNode()?.path }}</span>
+            }
           </mat-card-header>
           <mat-card-content>
-            <div class="uptime-grid">
-              @for (site of websites(); track site.host) {
-                <div class="site-label-item" [attr.title]="site.host + ': ' + site.responseMs + 'ms'">
-                  <div class="site-dot" [ngClass]="site.status">
-                    <a [href]="'https://' + site.host" target="_blank" rel="noopener"></a>
-                  </div>
-                  <span class="site-name">{{ site.host.split('.')[0] }}</span>
+            <div class="mini-treemap">
+              @for (rect of treemapLayout(); track rect.node.path) {
+                <div class="node-bar"
+                  [style.width.%]="rect.node.ratio * 100"
+                  [ngClass]="{
+                    'node-free': rect.node.path === '[free]',
+                    'node-var': rect.node.path === '/var',
+                    'node-usr': rect.node.path === '/usr',
+                    'node-home': rect.node.path === '/home',
+                    'node-opt': rect.node.path === '/opt',
+                    'node-tmp': rect.node.path === '/tmp',
+                    'node-etc': rect.node.path === '/etc',
+                    'node-huge': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.path !== '/var' && rect.node.path !== '/usr' && rect.node.path !== '/home' && rect.node.path !== '/opt' && rect.node.path !== '/tmp' && rect.node.path !== '/etc' && rect.node.ratio > 0.20,
+                    'node-large': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.path !== '/var' && rect.node.path !== '/usr' && rect.node.path !== '/home' && rect.node.path !== '/opt' && rect.node.path !== '/tmp' && rect.node.path !== '/etc' && rect.node.ratio > 0.10 && rect.node.ratio <= 0.20,
+                    'node-medium': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.path !== '/var' && rect.node.path !== '/usr' && rect.node.path !== '/home' && rect.node.path !== '/opt' && rect.node.path !== '/tmp' && rect.node.path !== '/etc' && rect.node.ratio > 0.05 && rect.node.ratio <= 0.10,
+                    'node-other': rect.node.path === '[other]',
+                    'active': selectedNode()?.path === rect.node.path
+                  }"
+                  (click)="selectedNode.set(rect.node)"
+                  [attr.title]="rect.node.path">
                 </div>
+              }
+            </div>
+            <div class="treemap-legend">
+              @for (rect of treemapLayout(); track rect.node.path) {
+                @if (rect.node.ratio > 0.005) {
+                  <span class="legend-item" (click)="selectedNode.set(rect.node)">
+                    <span class="dot" [ngClass]="{
+                      'node-free': rect.node.path === '[free]',
+                      'node-var': rect.node.path === '/var',
+                      'node-usr': rect.node.path === '/usr',
+                      'node-home': rect.node.path === '/home',
+                      'node-opt': rect.node.path === '/opt',
+                      'node-tmp': rect.node.path === '/tmp',
+                      'node-etc': rect.node.path === '/etc',
+                      'node-huge': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.path !== '/var' && rect.node.path !== '/usr' && rect.node.path !== '/home' && rect.node.path !== '/opt' && rect.node.path !== '/tmp' && rect.node.path !== '/etc' && rect.node.ratio > 0.20,
+                      'node-large': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.path !== '/var' && rect.node.path !== '/usr' && rect.node.path !== '/home' && rect.node.path !== '/opt' && rect.node.path !== '/tmp' && rect.node.path !== '/etc' && rect.node.ratio > 0.10 && rect.node.ratio <= 0.20,
+                      'node-medium': rect.node.path !== '[free]' && rect.node.path !== '[other]' && rect.node.path !== '/var' && rect.node.path !== '/usr' && rect.node.path !== '/home' && rect.node.path !== '/opt' && rect.node.path !== '/tmp' && rect.node.path !== '/etc' && rect.node.ratio > 0.05 && rect.node.ratio <= 0.10,
+                      'node-other': rect.node.path === '[other]'
+                    }"></span>
+                    {{ rect.node.path === '[free]' ? 'Free' : (rect.node.path === '[other]' ? 'Other' : rect.node.path) }} {{ rect.node.ratio * 100 | number: '1.0-0' }}%
+                  </span>
+                }
               }
             </div>
           </mat-card-content>
         </mat-card>
       </section>
-    </div>
+    }
+
+    <!-- Full-width Database Engines row -->
+    @if (database(); as dbData) {
+    <mat-card class="status-card db-full-width">
+      <mat-card-header>
+        <mat-card-title>Database Engines</mat-card-title>
+        <span class="header-chip" [ngClass]="'chip-' + dbData.overall">{{ dbData.overall | titlecase }}</span>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="compact-db-list">
+          @for (engine of dbData.engines; track engine.name) {
+            <div class="db-mini-item">
+              <span class="indicator" [ngClass]="'status-' + engine.status"></span>
+              <span class="name">{{ engine.name }}</span>
+              <span class="source">{{ engine.source }}</span>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+    }
   </div>
 </main>
