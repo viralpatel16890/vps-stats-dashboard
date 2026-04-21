@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 const app = express();
 const PORT = Number(process.env.PORT || 3510);
 const HOST = process.env.HOST || '127.0.0.1';
-const METRICS_CACHE_TTL_MS = Number(process.env.METRICS_CACHE_TTL_MS || 30000);
+const METRICS_CACHE_TTL_MS = Number(process.env.METRICS_CACHE_TTL_MS || 5000);
 const STORAGE_TREE_CACHE_TTL_MS = Number(process.env.STORAGE_TREE_CACHE_TTL_MS || 10 * 60 * 1000);
 const WEBSITE_STATUS_CACHE_TTL_MS = Number(process.env.WEBSITE_STATUS_CACHE_TTL_MS || 5 * 60 * 1000);
 const WEBSITE_TARGETS = (process.env.WEBSITE_TARGETS || [
@@ -83,7 +83,7 @@ app.get('/events', (req, res) => {
   // Send initial data
   sendEvent();
 
-  const interval = setInterval(sendEvent, 10000); // Stream every 10s
+  const interval = setInterval(sendEvent, 5000); // Stream every 5s
 
   req.on('close', () => {
     clearInterval(interval);

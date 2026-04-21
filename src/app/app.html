@@ -7,22 +7,15 @@
 
     <div class="actions">
       <div class="meta-info">
+        @if (lastUpdated()) {
+          <span class="sync-time">Synced {{ lastUpdated() | date: 'shortTime' }}</span>
+        } @else {
+          <span class="sync-time">Connecting...</span>
+        }
         <div class="health-badge" [style.borderColor]="healthStatus().color" [matTooltip]="healthStatus().details">
           <span class="status-dot" [style.backgroundColor]="healthStatus().color"></span>
           <span [style.color]="healthStatus().color">{{ healthStatus().text }}</span>
         </div>
-        @if (lastUpdated()) {
-          <span class="sync-time">Synced {{ lastUpdated() | date: 'shortTime' }}</span>
-        }
-      </div>
-      <div class="button-group">
-        <button mat-icon-button (click)="toggleTheme()" [title]="'Switch to ' + (isDarkMode() ? 'Light' : 'Dark') + ' mode'">
-          <mat-icon>{{ isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
-        </button>
-        <button mat-flat-button class="refresh-btn" (click)="refresh()" [disabled]="loading()">
-          <mat-icon class="refresh-glyph" [class.spinning]="loading()">refresh</mat-icon>
-          Refresh
-        </button>
       </div>
     </div>
   </header>
@@ -33,112 +26,121 @@
     </mat-card>
   }
 
-  @if (loading() && !cpu()) {
-    <div class="spinner-wrap">
-      <mat-spinner diameter="32"></mat-spinner>
-    </div>
-  }
-
   <div class="main-layout-grid">
     <!-- Top row: Vital Metrics -->
-    @if (cpu(); as cpuData) {
-      <section class="vitals-row">
-        <mat-card class="metric-card">
-          <mat-card-header>
-            <mat-card-subtitle>CPU</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
+    <section class="vitals-row" [class.loading-shimmer]="!cpu()">
+      <mat-card class="metric-card">
+        <mat-card-header>
+          <mat-card-subtitle>CPU</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (cpu(); as cpuData) {
             <div class="metric-display">
               <span class="value" [ngClass]="usageClass(cpuData.usagePercent)">{{ cpuData.usagePercent / 100 | percent: '1.0-0' }}</span>
               <mat-progress-bar mode="determinate" [value]="cpuData.usagePercent"></mat-progress-bar>
             </div>
-          </mat-card-content>
-        </mat-card>
+          } @else {
+            <div class="placeholder-content"></div>
+          }
+        </mat-card-content>
+      </mat-card>
 
-        @if (memory(); as memData) {
-          <mat-card class="metric-card">
-            <mat-card-header>
-              <mat-card-subtitle>Memory</mat-card-subtitle>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="metric-display">
-                <span class="value" [ngClass]="usageClass(memData.usagePercent)">{{ memData.usagePercent / 100 | percent: '1.0-0' }}</span>
-                <span class="sub-value">{{ memData.usedBytes / 1073741824 | number: '1.1-1' }} / {{ memData.totalBytes / 1073741824 | number: '1.1-1' }} GB</span>
-                <mat-progress-bar mode="determinate" [value]="memData.usagePercent"></mat-progress-bar>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        }
+      <mat-card class="metric-card">
+        <mat-card-header>
+          <mat-card-subtitle>Memory</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (memory(); as memData) {
+            <div class="metric-display">
+              <span class="value" [ngClass]="usageClass(memData.usagePercent)">{{ memData.usagePercent / 100 | percent: '1.0-0' }}</span>
+              <span class="sub-value">{{ memData.usedBytes / 1073741824 | number: '1.1-1' }} / {{ memData.totalBytes / 1073741824 | number: '1.1-1' }} GB</span>
+              <mat-progress-bar mode="determinate" [value]="memData.usagePercent"></mat-progress-bar>
+            </div>
+          } @else {
+            <div class="placeholder-content"></div>
+          }
+        </mat-card-content>
+      </mat-card>
 
-        @if (disk(); as diskData) {
-          <mat-card class="metric-card">
-            <mat-card-header>
-              <mat-card-subtitle>Disk ({{ diskData.mount }})</mat-card-subtitle>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="metric-display">
-                <span class="value" [ngClass]="usageClass(diskData.usagePercent)">{{ diskData.usagePercent / 100 | percent: '1.0-0' }}</span>
-                <span class="sub-value">{{ diskData.usedBytes / 1073741824 | number: '1.1-1' }} GB used</span>
-                <mat-progress-bar mode="determinate" [value]="diskData.usagePercent"></mat-progress-bar>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        }
-      </section>
-    }
+      <mat-card class="metric-card">
+        <mat-card-header>
+          <mat-card-subtitle>Disk</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (disk(); as diskData) {
+            <div class="metric-display">
+              <span class="value" [ngClass]="usageClass(diskData.usagePercent)">{{ diskData.usagePercent / 100 | percent: '1.0-0' }}</span>
+              <span class="sub-value">{{ diskData.usedBytes / 1073741824 | number: '1.1-1' }} GB used</span>
+              <mat-progress-bar mode="determinate" [value]="diskData.usagePercent"></mat-progress-bar>
+            </div>
+          } @else {
+            <div class="placeholder-content"></div>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
 
     <!-- Second row: Docker and Uptime -->
     <div class="status-split-grid">
-      @if (docker(); as dockerData) {
-      <mat-card class="status-card">
+      <mat-card class="status-card" [class.loading-shimmer]="!docker()">
         <mat-card-header>
           <mat-card-title>Docker Containers</mat-card-title>
-          <span class="header-count">{{ dockerData.runningCount }} up</span>
+          @if (docker(); as dockerData) {
+            <span class="header-count">{{ dockerData.runningCount }} up</span>
+          }
         </mat-card-header>
         <mat-card-content>
-          <div class="compact-container-list">
-            @for (container of dockerData.containers; track container.name) {
-              <div class="mini-item" [style.borderLeftColor]="getContainerStatusColor(container.state)">
-                <span class="name" [style.color]="getContainerStatusColor(container.state)">{{ container.name }}</span>
-                <span class="meta">{{ container.status }}</span>
-              </div>
+          <div class="status-list">
+            @if (docker(); as dockerData) {
+              @for (container of dockerData.containers; track container.name) {
+                <div class="status-item">
+                  <span class="status-dot" [ngClass]="container.state === 'running' ? 'up' : 'down'"></span>
+                  <span class="name" [style.color]="getContainerStatusColor(container.state)">{{ container.name }}</span>
+                  <span class="response-label">{{ container.status.split(' ')[0] }}</span>
+                </div>
+              }
+            } @else {
+              <div class="placeholder-list-item"></div>
+              <div class="placeholder-list-item"></div>
             }
           </div>
         </mat-card-content>
       </mat-card>
-      }
 
-      @if (websites(); as siteList) {
-      <mat-card class="status-card uptime-card">
+      <mat-card class="status-card uptime-card" [class.loading-shimmer]="!websites().length">
         <mat-card-header>
           <mat-card-title>Uptime</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <div class="uptime-list">
-            @for (site of siteList; track site.host) {
-              <div class="site-item" [attr.title]="site.host + ': ' + site.responseMs + 'ms'">
-                <span class="site-dot" [ngClass]="site.status"></span>
-                <a [href]="'https://' + site.host" target="_blank" rel="noopener" class="site-link">{{ site.host.split('.')[0] }}</a>
-                <span class="site-response">{{ site.responseMs }}ms</span>
-              </div>
+          <div class="status-list">
+            @if (websites().length) {
+              @for (site of websites(); track site.host) {
+                <div class="status-item" [attr.title]="site.host + ': ' + site.responseMs + 'ms'">
+                  <span class="status-dot" [ngClass]="site.status"></span>
+                  <a [href]="'https://' + site.host" target="_blank" rel="noopener" class="site-link">{{ site.host.split('.')[0] }}</a>
+                  <span class="response-label">{{ site.responseMs }}ms</span>
+                </div>
+              }
+            } @else {
+              <div class="placeholder-list-item"></div>
+              <div class="placeholder-list-item"></div>
             }
           </div>
         </mat-card-content>
       </mat-card>
-      }
     </div>
 
-    <!-- Full-width storage section -->
-    @if (disk()) {
-      <section class="storage-wrapper">
-        <mat-card class="footer-card">
-          <mat-card-header>
-            <mat-card-title>Storage Distribution</mat-card-title>
-            @if (selectedNode()) {
-              <span class="selected-path">{{ selectedNode()?.path }}</span>
-            }
-          </mat-card-header>
-          <mat-card-content>
+    <!-- Storage section -->
+    <section class="storage-wrapper">
+      <mat-card class="status-card" [class.loading-shimmer]="!storageTree().length">
+        <mat-card-header>
+          <mat-card-title>Storage Distribution</mat-card-title>
+          @if (selectedNode()) {
+            <span class="header-chip chip-up">{{ selectedNode()?.path }}</span>
+          }
+        </mat-card-header>
+        <mat-card-content>
+          @if (storageTree().length) {
             <div class="mini-treemap">
               @for (rect of treemapLayout(); track rect.node.path) {
                 <div class="node-bar"
@@ -184,30 +186,36 @@
                 }
               }
             </div>
-          </mat-card-content>
-        </mat-card>
-      </section>
-    }
+          } @else {
+            <div class="placeholder-treemap"></div>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
 
     <!-- Full-width Database Engines row -->
-    @if (database(); as dbData) {
-    <mat-card class="status-card db-full-width">
+    <mat-card class="status-card db-full-width" [class.loading-shimmer]="!database()">
       <mat-card-header>
         <mat-card-title>Database Engines</mat-card-title>
-        <span class="header-chip" [ngClass]="'chip-' + dbData.overall">{{ dbData.overall | titlecase }}</span>
+        @if (database(); as dbData) {
+          <span class="header-chip" [ngClass]="'chip-' + dbData.overall">{{ dbData.overall | titlecase }}</span>
+        }
       </mat-card-header>
       <mat-card-content>
-        <div class="compact-db-list">
-          @for (engine of dbData.engines; track engine.name) {
-            <div class="db-mini-item">
-              <span class="indicator" [ngClass]="'status-' + engine.status"></span>
-              <span class="name">{{ engine.name }}</span>
-              <span class="source">{{ engine.source }}</span>
-            </div>
+        <div class="status-list db-list">
+          @if (database(); as dbData) {
+            @for (engine of dbData.engines; track engine.name) {
+              <div class="status-item">
+                <span class="status-dot" [ngClass]="'status-' + engine.status"></span>
+                <span class="name">{{ engine.name }}</span>
+                <span class="response-label">{{ engine.source }}</span>
+              </div>
+            }
+          } @else {
+            <div class="placeholder-list-item"></div>
           }
         </div>
       </mat-card-content>
     </mat-card>
-    }
   </div>
 </main>

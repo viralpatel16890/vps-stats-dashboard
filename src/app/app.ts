@@ -114,7 +114,6 @@ export class App implements OnInit, OnDestroy {
   protected readonly websites = signal<MetricsResponse['websites']>([]);
   
   protected readonly lastUpdated = signal<Date | null>(null);
-  protected readonly isDarkMode = signal(false);
   protected readonly selectedNode = signal<TreeNode | null>(null);
 
   protected readonly treemapLayout = computed(() => {
@@ -123,7 +122,6 @@ export class App implements OnInit, OnDestroy {
 
     const rects: TreemapRect[] = [];
     
-    // Simple tiling algorithm (Binary Split)
     const compute = (
       items: TreeNode[],
       x: number,
@@ -151,12 +149,10 @@ export class App implements OnInit, OnDestroy {
       const ratio = halfRatio / totalRatio;
 
       if (width > height) {
-        // Horizontal split
         const leftWidth = width * ratio;
         compute(leftItems, x, y, leftWidth, height);
         compute(rightItems, x + leftWidth, y, width - leftWidth, height);
       } else {
-        // Vertical split
         const leftHeight = height * ratio;
         compute(leftItems, x, y, width, leftHeight);
         compute(rightItems, x, y + leftHeight, width, height - leftHeight);
@@ -198,7 +194,6 @@ export class App implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.initializeTheme();
     this.refresh();
     this.setupSSE();
     this.setupVisibilityThrottling();
@@ -223,7 +218,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   private setupSSE(): void {
-    if (this.eventSource) return; // Already connected
+    if (this.eventSource) return;
     
     this.eventSource = new EventSource('/api/events');
 
@@ -284,18 +279,9 @@ export class App implements OnInit, OnDestroy {
   }
 
   protected usageClass(percent: number): string {
-    if (percent >= 85) {
-      return 'critical';
-    }
-    if (percent >= 65) {
-      return 'warning';
-    }
+    if (percent >= 85) return 'critical';
+    if (percent >= 65) return 'warning';
     return 'healthy';
-  }
-
-  protected topStorageNode(): TreeNode | null {
-    const nodes = this.storageTree();
-    return nodes.length ? nodes[0] : null;
   }
 
   protected dockerStatusClass(state: string): string {
@@ -306,21 +292,8 @@ export class App implements OnInit, OnDestroy {
     return status === 'up' ? 'chip-up' : 'chip-down';
   }
 
-  protected toggleTheme(): void {
-    const next = !this.isDarkMode();
-    this.isDarkMode.set(next);
-    this.applyTheme(next);
-    localStorage.setItem('stats-theme', next ? 'dark' : 'light');
-  }
-
   protected getContainerStatusColor(state: string): string {
     return state === 'running' ? '#1f7a5a' : '#b33d3d';
-  }
-
-  protected getWebsiteResponseClass(ms: number): string {
-    if (ms > 500) return 'slow';
-    if (ms > 300) return 'medium';
-    return 'fast';
   }
 
   protected trackByContainer(_: number, container: MetricsResponse['docker']['containers'][number]): string {
@@ -337,17 +310,5 @@ export class App implements OnInit, OnDestroy {
 
   protected trackByWebsite(_: number, site: MetricsResponse['websites'][number]): string {
     return site.host;
-  }
-
-  private initializeTheme(): void {
-    const stored = localStorage.getItem('stats-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = stored ? stored === 'dark' : prefersDark;
-    this.isDarkMode.set(isDark);
-    this.applyTheme(isDark);
-  }
-
-  private applyTheme(isDark: boolean): void {
-    document.body.classList.toggle('dark-theme', isDark);
   }
 }
