@@ -1,6 +1,7 @@
 ﻿import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import os from 'node:os';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
@@ -44,6 +45,7 @@ app.use(helmet({
   contentSecurityPolicy: false
 }));
 app.use(cors());
+app.use(compression());
 
 app.get('/health', (_, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
@@ -65,6 +67,31 @@ app.get('/metrics', async (req, res) => {
 
 app.listen(PORT, HOST, () => {
   console.log(`stats-dashboard-api listening on http://${HOST}:${PORT}`);
+});
+
+app.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendEvent = async () => {
+    try {
+      const payload = await getMetricsWithCache(false);
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (error) {
+      console.error('SSE Error:', error);
+    }
+  };
+
+  // Send initial data
+  sendEvent();
+
+  const interval = setInterval(sendEvent, 5000); // Stream every 5s
+
+  req.on('close', () => {
+    clearInterval(interval);
+  });
 });
 
 async function getMetricsWithCache(forceFresh) {
@@ -163,7 +190,7 @@ function cpuSnapshot() {
 
 async function getDiskUsage() {
   const { stdout } = await safeExec('df', ['-B1', '--output=size,used,avail,pcent,target', '/']);
-  const lines = stdout.trim().split('\n');
+  const lines = stdout?.trim().split('\n') || [];
   const details = lines[1]?.trim().split(/\s+/) ?? [];
 
   const totalBytes = Number(details[0] || 0);
@@ -195,19 +222,21 @@ async function getDockerStatus() {
 
   const list = await safeExec('docker', ['ps', '-a', '--format', '{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Image}}']);
   const containers = list.stdout
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [name = 'unknown', state = 'unknown', status = 'unknown', image = 'unknown'] = line.split('\t');
-      return {
-        name,
-        state,
-        status,
-        image,
-        lastSeenAt: new Date().toISOString()
-      };
-    });
+    ? list.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [name = 'unknown', state = 'unknown', status = 'unknown', image = 'unknown'] = line.split('\t');
+          return {
+            name,
+            state,
+            status,
+            image,
+            lastSeenAt: new Date().toISOString()
+          };
+        })
+    : [];
   const runningCount = containers.filter((container) => container.state === 'running').length;
   const totalCount = containers.length;
   const stoppedCount = Math.max(totalCount - runningCount, 0);
@@ -263,7 +292,7 @@ async function getStorageTreeMap(totalBytes, usedBytes) {
   );
 
   let rows = [];
-  if (tree.ok) {
+  if (tree.ok && tree.stdout) {
     rows = tree.stdout
       .trim()
       .split('\n')
@@ -288,7 +317,7 @@ async function getStorageTreeMap(totalBytes, usedBytes) {
       ],
       { timeoutMs: 18000 }
     );
-    if (fallback.ok) {
+    if (fallback.ok && fallback.stdout) {
       rows = fallback.stdout
         .trim()
         .split('\n')

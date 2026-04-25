@@ -296,19 +296,47 @@ export class App implements OnInit, OnDestroy {
     return state === 'running' ? '#1f7a5a' : '#b33d3d';
   }
 
+  protected getContainerStatusShort(status: string): string {
+    return status?.split(' ')[0] || 'unknown';
+  }
+
+  protected getSiteHostShort(host: string): string {
+    return host?.split('.')[0] || host || 'unknown';
+  }
+
+  protected getContainerDisplayName(name: string): string {
+    // Remove common prefixes and make more readable
+    if (!name) return 'unknown';
+    
+    // Remove site- prefix
+    if (name.startsWith('site-')) {
+      return name.replace('site-', '');
+    }
+    
+    // Handle special cases
+    switch (name) {
+      case 'viralpatel-backend': return 'backend';
+      case 'viralpatel-redis': return 'redis';
+      case 'n8n-main': return 'n8n';
+      case 'stats-api': return 'stats-api';
+      case 'stats-backend': return 'stats-backend';
+      default: return name;
+    }
+  }
+
   protected trackByContainer(_: number, container: MetricsResponse['docker']['containers'][number]): string {
-    return container.name;
+    return container.name || `container-${_}`;
   }
 
   protected trackByEngine(_: number, engine: HealthStatus): string {
-    return engine.name;
+    return engine.name || `engine-${_}`;
   }
 
   protected trackByTreeNode(_: number, rect: TreemapRect): string {
-    return rect.node.path;
+    return rect.node.path || `node-${_}-${rect.node.ratio}`;
   }
 
   protected trackByWebsite(_: number, site: MetricsResponse['websites'][number]): string {
-    return site.host;
+    return site.host || `site-${_}`;
   }
 }

@@ -1,10 +1,16 @@
 {
   "/api": {
-    "target": "https://stats.viralpatelstudio.in",
-    "secure": true,
+    "target": "http://localhost:3510",
+    "secure": false,
     "changeOrigin": true,
     "pathRewrite": {
-      "^/api": "/api"
+      "^/api": ""
     }
+  },
+  "/events": {
+    "target": "http://localhost:3510",
+    "secure": false,
+    "changeOrigin": true,
+    "ws": true
   }
 }

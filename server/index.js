@@ -9,7 +9,7 @@ import { execFile } from 'node:child_process';
 const execFileAsync = promisify(execFile);
 const app = express();
 const PORT = Number(process.env.PORT || 3510);
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const METRICS_CACHE_TTL_MS = Number(process.env.METRICS_CACHE_TTL_MS || 5000);
 const STORAGE_TREE_CACHE_TTL_MS = Number(process.env.STORAGE_TREE_CACHE_TTL_MS || 10 * 60 * 1000);
 const WEBSITE_STATUS_CACHE_TTL_MS = Number(process.env.WEBSITE_STATUS_CACHE_TTL_MS || 5 * 60 * 1000);
@@ -192,7 +192,7 @@ export function cpuSnapshot() {
 
 export async function getDiskUsage() {
   const { stdout } = await safeExec('df', ['-B1', '--output=size,used,avail,pcent,target', '/']);
-  const lines = stdout.trim().split('\n');
+  const lines = stdout?.trim().split('\n') || [];
   const details = lines[1]?.trim().split(/\s+/) ?? [];
 
   const totalBytes = Number(details[0] || 0);
@@ -224,19 +224,21 @@ export async function getDockerStatus() {
 
   const list = await safeExec('docker', ['ps', '-a', '--format', '{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Image}}']);
   const containers = list.stdout
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [name = 'unknown', state = 'unknown', status = 'unknown', image = 'unknown'] = line.split('\t');
-      return {
-        name,
-        state,
-        status,
-        image,
-        lastSeenAt: new Date().toISOString()
-      };
-    });
+    ? list.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [name = 'unknown', state = 'unknown', status = 'unknown', image = 'unknown'] = line.split('\t');
+          return {
+            name,
+            state,
+            status,
+            image,
+            lastSeenAt: new Date().toISOString()
+          };
+        })
+    : [];
   const runningCount = containers.filter((container) => container.state === 'running').length;
   const totalCount = containers.length;
   const stoppedCount = Math.max(totalCount - runningCount, 0);
@@ -292,7 +294,7 @@ export async function getStorageTreeMap(totalBytes, usedBytes) {
   );
 
   let rows = [];
-  if (tree.ok) {
+  if (tree.ok && tree.stdout) {
     rows = tree.stdout
       .trim()
       .split('\n')
@@ -317,7 +319,7 @@ export async function getStorageTreeMap(totalBytes, usedBytes) {
       ],
       { timeoutMs: 18000 }
     );
-    if (fallback.ok) {
+    if (fallback.ok && fallback.stdout) {
       rows = fallback.stdout
         .trim()
         .split('\n')
