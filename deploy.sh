@@ -7,7 +7,7 @@ echo "Deploying VPS Stats Dashboard to production..."
 
 # Server details
 SERVER="root@68.183.81.164"
-REMOTE_PATH="/var/www/stats.viralpatelstudio.in/browser/"
+REMOTE_PATH="/var/www/stats.viralpatelstudio.in/"
 LOCAL_DIST="dist/stats-dashboard/"
 
 # Check if dist directory exists

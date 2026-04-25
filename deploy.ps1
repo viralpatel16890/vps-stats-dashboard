@@ -5,7 +5,7 @@ Write-Host "Deploying VPS Stats Dashboard to production..." -ForegroundColor Gre
 
 # Server details
 $Server = "root@68.183.81.164"
-$RemotePath = "/var/www/stats.viralpatelstudio.in/browser/"
+$RemotePath = "/var/www/stats.viralpatelstudio.in/"
 $LocalDist = "dist/stats-dashboard/"
 
 # Check if dist directory exists

@@ -148,17 +148,55 @@ mat-card {
 .warning { color: #b45309 !important; }
 .critical { color: #b91c1c !important; }
 
+/* Skeleton Loading States */
+.placeholder-content {
+	width: 100%;
+	height: 60px;
+	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+	background-size: 200% 100%;
+	animation: loading-shimmer 1.5s infinite;
+	border-radius: 4px;
+}
+
+.placeholder-list-item {
+	width: 100%;
+	height: 32px;
+	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+	background-size: 200% 100%;
+	animation: loading-shimmer 1.5s infinite;
+	border-radius: 4px;
+	margin-bottom: 4px;
+}
+
+@keyframes loading-shimmer {
+	0% { background-position: 200% 0; }
+	100% { background-position: -200% 0; }
+}
+
+.loading-shimmer {
+	opacity: 0.7;
+}
+
 /* Status Cards */
 .status-split-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 1.25rem;
+	min-height: 400px;
+	contain: layout;
+	aspect-ratio: 2/1;
 
-	@media (max-width: 900px) { grid-template-columns: 1fr; }
+	@media (max-width: 900px) { 
+		grid-template-columns: 1fr; 
+		min-height: 800px;
+		aspect-ratio: 1/2;
+	}
 }
 
 .status-card {
 	padding: 1rem !important;
+	min-height: 350px;
+	contain: layout;
 
 	mat-card-header {
 		padding: 0 !important;
@@ -166,9 +204,31 @@ mat-card {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		min-height: 40px;
 	}
 
 	mat-card-title { font-size: 0.95rem !important; font-weight: 800 !important; color: #112d37 !important; margin: 0 !important; }
+	
+	mat-card-content {
+		min-height: 250px;
+		contain: layout;
+	}
+	
+	&.db-full-width {
+		min-height: 200px;
+		
+		mat-card-content {
+			min-height: 120px;
+		}
+	}
+	
+	&.uptime-card {
+		min-height: 150px;
+		
+		mat-card-content {
+			min-height: 80px;
+		}
+	}
 }
 
 .header-count, .header-chip {
@@ -188,13 +248,19 @@ mat-card {
 	grid-template-columns: repeat(2, 1fr);
 	gap: 0.5rem;
 	max-height: 280px;
+	min-height: 200px;
 	overflow-y: auto;
 	padding-right: 4px;
+	contain: layout;
 
-	@media (max-width: 600px) { grid-template-columns: 1fr; }
+	@media (max-width: 600px) { 
+		grid-template-columns: 1fr; 
+		min-height: 150px;
+	}
 
 	&.db-list {
 		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		min-height: 120px;
 	}
 }
 
@@ -208,6 +274,8 @@ mat-card {
 	border-radius: 10px;
 	transition: all 0.2s ease;
 	min-width: 0;
+	height: 32px;
+	contain: layout;
 
 	&:hover { 
 		background: #ffffff; 
