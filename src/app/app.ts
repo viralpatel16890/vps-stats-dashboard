@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe, NgClass, PercentPipe, TitleCasePipe } from '@angular/common';
+import { CommonModule, DatePipe, DecimalPipe, NgClass, PercentPipe, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -58,11 +58,13 @@ interface MetricsResponse {
   };
   storageTree: TreeNode[];
   websites: Array<{
-    host: string;
+    host?: string;
+    url?: string;
+    name?: string;
     status: 'up' | 'down';
-    httpCode: number;
-    responseMs: number;
-    checkedAt: string;
+    httpCode?: number;
+    responseMs?: number;
+    checkedAt?: string;
     uptimeLabel?: string;
   }>;
 }
@@ -78,11 +80,7 @@ interface TreemapRect {
 @Component({
   selector: 'app-root',
   imports: [
-    NgClass,
-    TitleCasePipe,
-    DatePipe,
-    PercentPipe,
-    DecimalPipe,
+    CommonModule,
     MatButtonModule,
     MatCardModule,
     MatChipsModule,
@@ -103,7 +101,7 @@ export class App implements OnInit, OnDestroy {
   protected readonly title = signal('Stats Control Deck');
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  
+
   // Granular Signals
   protected readonly cpu = signal<MetricsResponse['cpu'] | null>(null);
   protected readonly memory = signal<MetricsResponse['memory'] | null>(null);
@@ -112,7 +110,7 @@ export class App implements OnInit, OnDestroy {
   protected readonly database = signal<MetricsResponse['database'] | null>(null);
   protected readonly storageTree = signal<MetricsResponse['storageTree']>([]);
   protected readonly websites = signal<MetricsResponse['websites']>([]);
-  
+
   protected readonly lastUpdated = signal<Date | null>(null);
   protected readonly selectedNode = signal<TreeNode | null>(null);
 
@@ -121,7 +119,7 @@ export class App implements OnInit, OnDestroy {
     if (!nodes.length) return [];
 
     const rects: TreemapRect[] = [];
-    
+
     const compute = (
       items: TreeNode[],
       x: number,
@@ -193,6 +191,18 @@ export class App implements OnInit, OnDestroy {
     return { color: '#1f7a5a', text: 'Healthy', details: 'All systems operational' };
   });
 
+  protected readonly dockerSpecificMessage = computed(() => {
+    const dockerData = this.docker();
+    const currentError = this.error();
+    const isLoading = this.loading();
+
+    // Only show the message if we are NOT loading and still have no data or error
+    if (!dockerData && !currentError && !isLoading) {
+      return 'Docker service unavailable or data not loaded.';
+    }
+    return null;
+  });
+
   ngOnInit(): void {
     this.refresh();
     this.setupSSE();
@@ -219,7 +229,7 @@ export class App implements OnInit, OnDestroy {
 
   private setupSSE(): void {
     if (this.eventSource) return;
-    
+
     this.eventSource = new EventSource('/api/events');
 
     this.eventSource.onmessage = (event) => {
@@ -244,6 +254,8 @@ export class App implements OnInit, OnDestroy {
   }
 
   private updateSignals(data: MetricsResponse): void {
+    console.log('Updating signals with data:', data); // Log all received data
+    console.log('Received websites data:', data.websites); // Specific log for websites data
     this.cpu.set(data.cpu);
     this.memory.set(data.memory);
     this.disk.set(data.disk);
@@ -272,8 +284,9 @@ export class App implements OnInit, OnDestroy {
         next: (response) => {
           this.updateSignals(response);
         },
-        error: () => {
-          this.error.set('Unable to fetch latest system metrics.');
+        error: (err) => {
+          console.error('API Error:', err);
+          this.error.set(`API Error: ${err.message || 'Unable to fetch latest system metrics.'}`);
         }
       });
   }
@@ -297,18 +310,29 @@ export class App implements OnInit, OnDestroy {
   }
 
   protected trackByContainer(_: number, container: MetricsResponse['docker']['containers'][number]): string {
-    return container.name;
+    return container.name || `container-${_}`;
   }
 
   protected trackByEngine(_: number, engine: HealthStatus): string {
-    return engine.name;
+    return engine.name || `engine-${_}`;
   }
 
   protected trackByTreeNode(_: number, rect: TreemapRect): string {
-    return rect.node.path;
+    return rect.node.path || `node-${_}`;
   }
 
   protected trackByWebsite(_: number, site: MetricsResponse['websites'][number]): string {
-    return site.host;
+    return site.host || site.url || site.name || `site-${_}`;
+  }
+
+  protected getWebsiteName(site: MetricsResponse['websites'][number]): string {
+    if (site.name) return site.name;
+    const identifier = site.host || (site.url ? new URL(site.url).hostname : 'unknown');
+    return identifier.split('.')[0] || identifier;
+  }
+
+  protected getWebsiteUrl(site: MetricsResponse['websites'][number]): string {
+    if (site.url) return site.url;
+    return site.host ? `https://${site.host}` : '#';
   }
 }

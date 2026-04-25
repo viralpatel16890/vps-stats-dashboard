@@ -24,6 +24,10 @@
     <mat-card class="error-card compact">
       <mat-card-content>{{ error() }}</mat-card-content>
     </mat-card>
+  } @else if (dockerSpecificMessage()) {
+    <mat-card class="error-card compact">
+      <mat-card-content>{{ dockerSpecificMessage() }}</mat-card-content>
+    </mat-card>
   }
 
   <div class="main-layout-grid">
@@ -82,30 +86,36 @@
 
     <!-- Second row: Docker and Uptime -->
     <div class="status-split-grid">
-      <mat-card class="status-card" [class.loading-shimmer]="!docker()">
+      <mat-card class="status-card" [class.loading-shimmer]="!docker() && !dockerSpecificMessage() && !error()">
         <mat-card-header>
           <mat-card-title>Docker Containers</mat-card-title>
           @if (docker(); as dockerData) {
             <span class="header-count">{{ dockerData.runningCount }} up</span>
           }
-        </mat-card-header>
-        <mat-card-content>
-          <div class="status-list">
-            @if (docker(); as dockerData) {
-              @for (container of dockerData.containers; track container.name) {
-                <div class="status-item">
-                  <span class="status-dot" [ngClass]="container.state === 'running' ? 'up' : 'down'"></span>
-                  <span class="name" [style.color]="getContainerStatusColor(container.state)">{{ container.name }}</span>
-                  <span class="response-label">{{ container.status.split(' ')[0] }}</span>
-                </div>
-              }
+          </mat-card-header>
+          <mat-card-content>          @if (docker(); as dockerData) {
+            @if (dockerData.containers && dockerData.containers.length > 0) {
+              <div class="status-list">
+                @for (container of dockerData.containers; track trackByContainer($index, container)) {
+                  <div class="status-item">
+                    <span class="status-dot" [ngClass]="container.state === 'running' ? 'up' : 'down'"></span>
+                    <span class="name" [style.color]="getContainerStatusColor(container.state)">{{ container.name }}</span>
+                    <span class="response-label">{{ (container.status && container.status.split(' ')[0]) || 'unknown' }}</span>
+                  </div>
+                }
+              </div>
             } @else {
-              <div class="placeholder-list-item"></div>
-              <div class="placeholder-list-item"></div>
+              <!-- Message when docker data is present but no containers -->
+              <div class="no-containers-message">No Docker containers running.</div>
             }
-          </div>
-        </mat-card-content>
-      </mat-card>
+          } @else {
+             <!-- This else block is reached if docker() is null. -->
+             <!-- The error/dockerSpecificMessage block above the card should handle displaying messages. -->
+             <!-- If we reach here, it means docker() is null, and no error messages were displayed above. -->
+             <!-- This state is unlikely if dockerSpecificMessage is working correctly. -->
+             <!-- We should rely on the messages above, and if docker() is null, the shimmer should be active. -->
+          }
+        </mat-card-content>      </mat-card>
 
       <mat-card class="status-card uptime-card" [class.loading-shimmer]="!websites().length">
         <mat-card-header>
@@ -114,11 +124,13 @@
         <mat-card-content>
           <div class="status-list">
             @if (websites().length) {
-              @for (site of websites(); track site.host) {
-                <div class="status-item" [attr.title]="site.host + ': ' + site.responseMs + 'ms'">
+              @for (site of websites(); track trackByWebsite($index, site)) {
+                <div class="status-item" [attr.title]="getWebsiteName(site) + (site.responseMs ? ': ' + site.responseMs + 'ms' : '')">
                   <span class="status-dot" [ngClass]="site.status"></span>
-                  <a [href]="'https://' + site.host" target="_blank" rel="noopener" class="site-link">{{ site.host.split('.')[0] }}</a>
-                  <span class="response-label">{{ site.responseMs }}ms</span>
+                  <a [href]="getWebsiteUrl(site)" target="_blank" rel="noopener" class="site-link">{{ getWebsiteName(site) }}</a>
+                  @if (site.responseMs) {
+                    <span class="response-label">{{ site.responseMs }}ms</span>
+                  }
                 </div>
               }
             } @else {
@@ -142,7 +154,7 @@
         <mat-card-content>
           @if (storageTree().length) {
             <div class="mini-treemap">
-              @for (rect of treemapLayout(); track rect.node.path) {
+              @for (rect of treemapLayout(); track trackByTreeNode($index, rect)) {
                 <div class="node-bar"
                   [style.width.%]="rect.node.ratio * 100"
                   [ngClass]="{
@@ -165,7 +177,7 @@
               }
             </div>
             <div class="treemap-legend">
-              @for (rect of treemapLayout(); track rect.node.path) {
+              @for (rect of treemapLayout(); track trackByTreeNode($index, rect)) {
                 @if (rect.node.ratio > 0.005) {
                   <span class="legend-item" (click)="selectedNode.set(rect.node)">
                     <span class="dot" [ngClass]="{
@@ -204,7 +216,7 @@
       <mat-card-content>
         <div class="status-list db-list">
           @if (database(); as dbData) {
-            @for (engine of dbData.engines; track engine.name) {
+            @for (engine of dbData.engines; track trackByEngine($index, engine)) {
               <div class="status-item">
                 <span class="status-dot" [ngClass]="'status-' + engine.status"></span>
                 <span class="name">{{ engine.name }}</span>
